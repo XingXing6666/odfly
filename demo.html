@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Picman | Home</title>
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map_container {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+    </style>
+
+    <script type="text/javascript">
+      var map;
+      window.onload = function () {
+        map_container.onmousewheel = function (e) {
+          e = e || window.event;
+          if (document.all) {
+            e.cancelBubble = true;
+          } else {
+            e.stopPropagation();
+          }
+        };
+
+        /* 地图  使用ajax异步请求数据 */
+
+        map = initMap({
+          tilt: 41.8,
+          heading: 0,
+          center: [121.511983, 38.847788],
+          zoom: 12,
+          style: purpleStyle,
+        });
+      };
+
+      function readExcel(file_obj) {
+        var reader = new FileReader();
+        var file = file_obj.files[0];
+
+        reader.readAsBinaryString(file);
+
+        reader.onload = (e) => {
+          var data = e.target.result;
+          var wb = XLSX.read(data, { type: "binary" });
+
+          sheetName = wb.SheetNames[0]; // 获取文档中第一个sheet页签的名字
+          sheets = wb.Sheets[sheetName]; // 获sheet名页签下的数据
+          str = sheets["!ref"];
+          lenth = str.charAt(str.length - 1); // 返回sheet对象到控制台
+          // 开始赋值
+          var up = [];
+          var down = [];
+          //6913这个数字控制飞线的数量，取适中即可。
+          for (let i = 1; i < 6913; i++) {
+            val = i + 1;
+            up.push([sheets["A" + val].v, sheets["B" + val].v]);
+            down.push([sheets["C" + val].v, sheets["D" + val].v]);
+          }
+          console.log(up);
+          console.log(down);
+
+          //---------------------------------------------------------------开始画线
+          var curve = new mapvgl.BezierCurve();
+
+          var data = [];
+          // var up = [
+          //   [121.511983, 38.847788],
+          //   [121.540876, 38.916472],
+          // ];
+          // var down = [
+          //   [121.670185, 38.919264],
+          //   [121.512931, 38.847542],
+          // ];
+          for (let i = 0; i < up.length; i++) {
+            // var startPoint = mapv.utilCityCenter.getCenterByCityName("乌海");
+            // var endPoint = mapv.utilCityCenter.getCenterByCityName(
+            //   citys[randomCount]
+            // );
+            startPoint = up[i];
+            endPoint = down[i];
+            var startPoint = map.lnglatToMercator(startPoint[1], startPoint[0]);
+            var endPoint = map.lnglatToMercator(endPoint[1], endPoint[0]);
+
+            curve.setOptions({
+              start: [startPoint[0], startPoint[1]],
+              end: [endPoint[0], endPoint[1]],
+            });
+            var curveModelData = curve.getPoints(60);
+
+            data.push({
+              geometry: {
+                type: "LineString",
+                coordinates: curveModelData,
+              },
+              properties: {
+                count: Math.random(),
+              },
+            });
+          }
+
+          var view = new mapvgl.View({
+            effects: [
+              new mapvgl.BrightEffect({
+                threshold: 0,
+                blurSize: 2,
+                clarity: 1,
+              }),
+            ],
+            map: map,
+          });
+
+          var lineLayer = new mapvgl.LineTripLayer({
+            color: "rgb(255, 255, 204)", // 飞线动画颜色
+            step: 1,
+          });
+          view.addLayer(lineLayer);
+
+          lineLayer.setData(
+            data.map((item) => {
+              item.geometry.coordinates = item.geometry.coordinates.map(
+                (item) => {
+                  item[2] += 3;
+                  return item;
+                }
+              );
+              return item;
+            })
+          );
+
+          var lineLayer = new mapvgl.SimpleLineLayer({
+            blend: "lighter",
+            color: "rgb(255, 153, 0, 1)", // 飞线颜色
+          });
+          view.addLayer(lineLayer);
+          lineLayer.setData(data);
+        };
+      }
+    </script>
+
+    <!-- 地图 -->
+
+    <!-- 百度地图基础库，需要自己去百度地图官网申请ak -->
+    <script src="https://api.map.baidu.com/api?v=1.0&type=webgl&ak=mMrmmhyBqfV8UOMnHeVVoKxxVcCUn9hT"></script>
+    <script src="https://mapv.baidu.com/build/mapv.min.js"></script>
+    <script src="https://mapv.baidu.com/gl/examples/static/common.js"></script>
+    <script src="https://code.bdstatic.com/npm/mapvgl@1.0.0-beta.152/dist/mapvgl.min.js"></script>
+    <script src="https://code.bdstatic.com/npm/mapvgl@1.0.0-beta.152/dist/mapvgl.threelayers.min.js"></script>
+    <script
+      type="text/javascript"
+      src="./xlsx-0.20.2/package/dist/xlsx.full.min.js"
+    ></script>
+  </head>
+
+  <body>
+    <input type="file" onchange="readExcel(this)" />
+    <div id="map_container"></div>
+  </body>
+</html>
